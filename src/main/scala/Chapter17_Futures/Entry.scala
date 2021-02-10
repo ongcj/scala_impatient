@@ -1,8 +1,8 @@
 package Chapter17_Futures
 
-import javax.swing.plaf.FontUIResource
-
 import scala.concurrent.{Await, Future}
+import scala.io.Source
+import scala.util.Try
 
 object Entry extends App {
 
@@ -90,5 +90,159 @@ object Entry extends App {
   def doAllInOrder(x : Int) : Future[Int] = f3(f2_1, f2_2, f3_1)(x)
   println(Await.result(doAllInOrder(1), 5.seconds)) // ((1 + 100) * 2) + 1 = 203
 
+  /*
+  EXERCISES 4
+  Write a function doTogether that, given two functions
+  f: T => Future[U] and
+  g: U => Future[V],
+  produces a function T => Future[(U, V)],
+  running the two computations in parallel and, for a given t, eventually yielding (f(t), g(t)).
+   */
+
+  def f4 [T, U, V] (f : T => Future[U], g : T => Future[V]) : T => Future[(U,V)] = {
+    (t : T) => {
+      val functionF = f(t) // using val, the computation for the future start.
+      val functionG = g(t)
+      functionF.flatMap(u => functionG.map(v => (u, v))) // retrieve result in tuple
+    }
+  }
+
+  def f4_1 : Int => Future[Int] = {
+    x => Future {
+      Thread.sleep(2)
+      println("f4_1 is done. This should be after f4_2.")
+      13
+    }
+  }
+
+  def f4_2 : Int => Future[Int] = {
+    x => Future {
+      Thread.sleep(1)
+      println("f4_2 is done despite f4_1 is called first.")
+      23
+    }
+  }
+
+  def doTogether(x: Int) : Future[(Int, Int)] = f4(f4_1, f4_2)(1)
+
+  println(Await.result(doTogether(3), 5.seconds))
+
+  /*
+  EXERCISES 5
+  Write a function that receives a sequence of futures and returns a future that eventually yields a sequence of all results.
+   */
+  def f5 [T] (fs : Seq[Future[T]]) : Future[Seq[T]] = {
+    val resultList = Future { List[T]() }
+    fs.foldRight(resultList)( // fs is a Seq of futures. initial result is a empty list
+      (fn, fnplus1) => // for two futures,
+        fn.flatMap(yn => // get the result from the first futures
+          fnplus1.map(ynplus1 => // get the result from the second futures
+            yn :: ynplus1))// for each pair of futures, concatenate into the list.
+    )
+  }
+
+  // defining some futures for testing
+  // using def so that future do not get executed immediately.
+  def f5_1 : Future[Int] = Future {1}
+  def f5_2 : Future[Int] = Future {2}
+  def f5_3 : Future[Int] = Future {3}
+
+  def listOfFutures : List[Future[Int]] = List(f5_1, f5_2, f5_3)
+
+  println(Await.result(f5(listOfFutures), 5.seconds))
+  /*
+  EXERCISES 6
+  Write a method
+    Future[T] repeat(action: => T, until: T => Boolean)
+  that asynchronously repeats the action until it produces a value that is accepted by the until predicate,
+  which should also run asynchronously.
+  Test with a function that reads a password from the console,
+  and a function that simulates a validity check by sleeping for a second and then
+  checking that the password is "secret". Hint: Use recursion.
+   */
+
+
+  /*
+  EXERCISES 7
+  Write a program that counts the prime numbers between 1 and n,
+  as reported by BigInt.isProbablePrime.
+  Divide the interval into p parts, where p is the number of available processors.
+  Count the primes in each part in concurrent futures and combine the results.
+   */
+  def f7 (n: Int) : Int = {
+    val p = Runtime.getRuntime.availableProcessors()
+    println("number of processors/parts : " + p)
+
+    def isPrime (part: Seq[Int]) : Future[Int] = { // filter out non-prime and count
+      Future {
+        part.count(BigInt(_).isProbablePrime(5)) // larger certainty more accurate but longer time.
+      }
+    }
+
+    // do range and spilt into p parts
+    val parts = (1 to n)
+      .grouped(p)
+      .map(isPrime(_))
+      .map(Await.result(_, 1.seconds))
+
+    parts.sum
+  }
+
+  println("result : " + f7(1000))
+
+  /*
+  EXERCISES 8
+  Write a program that asks the user for a URL,
+  reads the web page at that URL,
+  and displays all the hyperlinks.
+  Use a separate Future for each of these three steps.
+   */
+
+  // simulate user providing url
+  def provideUrl : String = {
+    Thread.sleep(3)
+    "http://www.google.com"
+  }
+  // ask the user for a URL.
+  def f8_1 () : Future[String] = {
+    Future { provideUrl }
+  }
+  // reads the web page at that URL
+  def f8_2 (url: String) : Future[String] = {
+    Future {
+
+      try {
+        Source.fromURL(url).mkString
+      }
+      finally {
+        Source.fromURL(url).close
+      }
+
+    }
+  }
+
+  // extract hyperlink from content
+  def f8_3 (hyperlinks : Seq[String]) : Unit = {
+
+  }
+
+  /*
+  EXERCISES 11
+  Using futures, run four tasks that each sleep for ten seconds and then print the current time.
+  If you have a reasonably modern computer,
+  it is very likely that it reports four available processors to the JVM,
+  and the futures should all complete at around the same time.
+  Now repeat with forty tasks.
+  What happens? Why? Replace the execution context with a cached thread pool.
+  What happens now? (Be careful to define the futures after replacing the implicit execution context.)
+   */
+
+  def listSleepTen(n : Int) : Seq[Future[Unit]] = {
+    def sleepTen : Future[Unit] = Future {
+      Thread.sleep(10)
+      println("")
+    }
+    def ls = List[Future[Unit]]()
+  }
 
 }
