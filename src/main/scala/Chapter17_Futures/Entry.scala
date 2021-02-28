@@ -196,37 +196,20 @@ object Entry extends App {
   reads the web page at that URL,
   and displays all the hyperlinks.
   Use a separate Future for each of these three steps.
-   */
 
-  // simulate user providing url
-  def provideUrl : String = {
-    Thread.sleep(3)
-    "http://www.google.com"
-  }
-  // ask the user for a URL.
-  def f8_1 () : Future[String] = {
-    Future { provideUrl }
-  }
-  // reads the web page at that URL
-  def f8_2 (url: String) : Future[String] = {
-    Future {
+  EXERCISES 9
+  Write a program that asks the user for a URL, reads the web page at that URL,
+  finds all the hyperlinks, visits each of them concurrently,
+  and locates the Server HTTP header for each of them.
+  Finally, print a table of which servers were found how often.
+  The futures that visit each page should return the header.
 
-      try {
-        Source.fromURL(url).mkString
-      }
-      finally {
-        Source.fromURL(url).close
-      }
+  EXERCISES 10
+  Change the preceding exercise where the futures that visit each header update a shared Java ConcurrentHashMap
+  or Scala TrieMap. This isn’t as easy as it sounds. A threadsafe data structure is safe in the sense that you
+  cannot corrupt its implementation,
+  but you have to make sure that sequences of reads and updates are atomic.
 
-    }
-  }
-
-  // extract hyperlink from content
-  def f8_3 (hyperlinks : Seq[String]) : Unit = {
-
-  }
-
-  /*
   EXERCISES 11
   Using futures, run four tasks that each sleep for ten seconds and then print the current time.
   If you have a reasonably modern computer,
@@ -235,14 +218,25 @@ object Entry extends App {
   Now repeat with forty tasks.
   What happens? Why? Replace the execution context with a cached thread pool.
   What happens now? (Be careful to define the futures after replacing the implicit execution context.)
+
+  EXERCISES 12
+  Write a method that, given a URL, locates all hyperlinks, makes a promise for each of them,
+  starts a task in which it will eventually fulfill all promises,
+  and returns a sequence of futures for the promises.
+  Why would it not be a good idea to return a sequence of promises?
    */
 
-  def listSleepTen(n : Int) : Seq[Future[Unit]] = {
-    def sleepTen : Future[Unit] = Future {
-      Thread.sleep(10)
-      println("")
-    }
-    def ls = List[Future[Unit]]()
-  }
+  /*
+  EXERCISES 13
+  Use a promise for implementing cancellation. Given a range of big integers,
+  split the range into subranges that you concurrently search for palindromic primes.
+  When such a prime is found, set it as the value of the future.
+  All tasks should periodically check whether the promise is completed,
+  in which case they should terminate.
+
+
+   */
+
+
 
 }
